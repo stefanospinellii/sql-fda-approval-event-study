@@ -1,0 +1,5 @@
+event_window,trading_days,fda_events,mean_abnormal_return_pct,median_abnormal_return_pct
+pre_30_to_7,142778,8460,-0.0098,-0.0234
+event_1_to_1,21496,8460,0.0199,-0.0049
+post_2_to_10,49591,8461,-0.0014,-0.0155
+post_11_to_30,117373,8461,-0.0174,-0.031
