@@ -10,7 +10,7 @@ The project was built entirely in SQL using DuckDB. Python was only used to down
 
 ---
 
-## Business Question
+## Research Questions
 
 > How does the stock market react to FDA drug approvals?
 
@@ -58,7 +58,37 @@ Period covered:
 6. Build event windows around approval dates
 7. Aggregate cumulative abnormal returns (CAR)
 
----
+### Key Metrics
+
+**Daily Return**
+
+Daily return measures the percentage change in a stock price from one trading day to the next.
+
+```text
+Daily Return = (Today's Closing Price / Previous Closing Price) - 1
+```
+
+**Abnormal Return**
+
+Abnormal return measures how much a stock outperformed or underperformed the broader market on a given day.
+
+```text
+Abnormal Return = Stock Return - Market Return
+```
+
+In this project, market return was measured using **SPY**, the ticker of the SPDR S&P 500 ETF. Because SPY tracks the S&P 500 Index, it was used as a proxy for overall U.S. market performance.
+
+A positive abnormal return indicates that a stock outperformed the broader market, while a negative abnormal return indicates underperformance.
+
+**Cumulative Abnormal Return (CAR)**
+
+CAR measures the total abnormal performance over a specific event window.
+
+```text
+CAR = Sum of Abnormal Returns over the event window
+```
+
+For example, a 7-day CAR of 2% means the stock outperformed the broader U.S. market by 2 percentage points during that event window.
 
 ## SQL Techniques Used
 
@@ -77,61 +107,66 @@ Period covered:
 
 ## Key Findings
 
-### 1. Average market reaction is small
+### 1. Average approval reaction is close to zero
 
-Across all approvals, average abnormal returns were close to zero.
+Across 8,466 FDA approval events, the average event CAR was 0.07% and the median event CAR was 0.00%.
+
+| Events | Mean Event CAR | Median Event CAR |
+|-------:|---------------:|-----------------:|
+| 8,466 | 0.07% | 0.00% |
+
+The low average reaction suggests that many FDA approvals may already be anticipated by investors before the official decision date. Clinical trial results, analyst expectations, management guidance and regulatory updates may already be incorporated into stock prices.
 
 ### 2. A small number of approvals drive most market impact
 
-Some approvals generated exceptionally large reactions:
+| Company | Drug | Event CAR |
+|----------|----------|----------:|
+| Sarepta | Exondys 51 | +87.71% |
+| Biogen | Aduhelm | +38.30% |
+| Sarepta | Vyondys 53 | +29.54% |
+| Neurocrine | Ingrezza | +28.34% |
 
-| Company    | Drug       | Event CAR |
-| ---------- | ---------- | --------- |
-| Sarepta    | Exondys 51 | +87.7%    |
-| Biogen     | Aduhelm    | +38.3%    |
-| Sarepta    | Vyondys 53 | +29.5%    |
-| Neurocrine | Ingrezza   | +28.3%    |
+These approvals were concentrated among companies whose future growth prospects depended heavily on a limited number of products. In such cases, FDA approval can significantly reduce uncertainty around future revenues and valuation. 
 
-### 3. Biotech companies react more strongly
+### 3. Biotech companies react more strongly than Big Pharma
 
-Biotech firms showed larger abnormal returns than large pharmaceutical companies.
+| Company Group | Events | Mean Event CAR | Median Event CAR |
+|--------------|-------:|---------------:|-----------------:|
+| Biotech | 1,182 | 0.35% | 0.09% |
+| Big Pharma | 7,284 | 0.02% | 0.00% |
 
-| Company Group | Events | Median Event CAR |
-| ------------- | ------ | ---------------- |
-| Biotech       | 1,182  | 0.09%            |
-| Big Pharma    | 7,284  | 0.00%            |
+Biotech companies are usually more dependent on a smaller product pipeline, so a single approval can have a larger valuation impact.
 
 ### 4. NDA and BLA approvals show similar reactions
 
-The data suggests limited differences between traditional drugs and biologics.
+| Application Type | Events | Mean Event CAR | Median Event CAR |
+|------------------|-------:|---------------:|-----------------:|
+| BLA | 1,294 | 0.03% | 0.00% |
+| NDA | 7,115 | 0.07% | 0.00% |
 
-| Application Type | Events | Median Event CAR |
-| ---------------- | ------ | ---------------- |
-| NDA              | 7,115  | 0.00%            |
-| BLA              | 1,294  | 0.00%            |
+The results suggest that investors may care more about a treatment's commercial potential than its regulatory pathway. Whether a product is approved through an NDA or BLA appears to have limited influence on market reactions.
 
 ### 5. Priority Reviews generate slightly stronger reactions
 
-Priority approvals showed higher median abnormal returns than Standard Reviews.
+| Review Type | Events | Mean Event CAR | Median Event CAR |
+|-------------|-------:|---------------:|-----------------:|
+| Priority | 977 | 0.27% | 0.03% |
+| Standard | 6,308 | 0.04% | 0.00% |
 
-| Review Type | Events | Median Event CAR |
-| ----------- | ------ | ---------------- |
-| Priority    | 977    | 0.03%            |
-| Standard    | 6,308  | 0.00%            |
+Priority Review status may signal stronger clinical relevance or larger commercial opportunity.
 
----
+## Outputs
 
-## Repository Structure
+Running `python run.py` generates the result tables used in the analysis and saves them to the `outputs/` folder.
 
-```text
-sql-fda-approval-event-study/
-│
-├── README.md
-├── analysis.sql
-├── run.py
-├── setup.py
-└── .gitignore
-```
+Generated files:
+
+- `01_overall_event_car_summary.csv`
+- `02_top_market_moving_events.csv`
+- `03_big_pharma_vs_biotech.csv`
+- `04_nda_vs_bla.csv`
+- `05_priority_vs_standard.csv`
+- `06_event_window_summary.csv`
 
 ## Running the Project
 

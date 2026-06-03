@@ -147,27 +147,24 @@ WHERE r.daily_return IS NOT NULL
   AND spy.daily_return IS NOT NULL;
 
 
--- Query 1: Overall market reaction by event window
+-- Query 1: Overall Event CAR Summary
+
+WITH car_by_event AS (
+    SELECT
+        event_id,
+        SUM(CASE WHEN days_from_approval BETWEEN 0 AND 1 THEN abnormal_return ELSE 0 END) AS event_car
+    FROM event_window
+    GROUP BY event_id
+)
 
 SELECT
-    event_window,
-    COUNT(*) AS trading_days,
-    COUNT(DISTINCT event_id) AS fda_events,
-    ROUND(AVG(abnormal_return) * 100, 4) AS avg_abnormal_return_pct,
-    ROUND(MEDIAN(abnormal_return) * 100, 4) AS median_abnormal_return_pct
-FROM event_window
-WHERE event_window IS NOT NULL
-GROUP BY event_window
-ORDER BY
-    CASE event_window
-        WHEN 'pre_30_to_7' THEN 1
-        WHEN 'event_1_to_1' THEN 2
-        WHEN 'post_2_to_10' THEN 3
-        WHEN 'post_11_to_30' THEN 4
-    END;
+    COUNT(*) AS events,
+    ROUND(AVG(event_car) * 100, 2) AS mean_event_car_pct,
+    ROUND(MEDIAN(event_car) * 100, 2) AS median_event_car_pct
+FROM car_by_event;
 
 
--- Query 2: Cumulative abnormal return per FDA event
+-- Query 2: Top 20 market-moving FDA approval events
 
 WITH car_by_event AS (
     SELECT
@@ -177,28 +174,23 @@ WITH car_by_event AS (
         DrugName,
         ApplType,
         approval_date,
-        SUM(CASE WHEN days_from_approval BETWEEN -7 AND -1 THEN abnormal_return ELSE 0 END) AS car_pre_7d,
-        SUM(CASE WHEN days_from_approval BETWEEN 0 AND 1 THEN abnormal_return ELSE 0 END) AS car_event_0_1d,
-        SUM(CASE WHEN days_from_approval BETWEEN 2 AND 7 THEN abnormal_return ELSE 0 END) AS car_post_7d,
-        SUM(CASE WHEN days_from_approval BETWEEN 2 AND 30 THEN abnormal_return ELSE 0 END) AS car_post_30d
+        SUM(CASE WHEN days_from_approval BETWEEN 0 AND 1 THEN abnormal_return ELSE 0 END) AS event_car,
+        SUM(CASE WHEN days_from_approval BETWEEN 2 AND 30 THEN abnormal_return ELSE 0 END) AS post_30d_car
     FROM event_window
     GROUP BY event_id, ticker, SponsorApplicant, DrugName, ApplType, approval_date
 )
 
 SELECT
-    event_id,
+    approval_date,
     ticker,
     SponsorApplicant,
     DrugName,
     ApplType,
-    approval_date,
-    ROUND(car_pre_7d * 100, 2) AS car_pre_7d_pct,
-    ROUND(car_event_0_1d * 100, 2) AS car_event_0_1d_pct,
-    ROUND(car_post_7d * 100, 2) AS car_post_7d_pct,
-    ROUND(car_post_30d * 100, 2) AS car_post_30d_pct
+    ROUND(event_car * 100, 2) AS event_car_pct,
+    ROUND(post_30d_car * 100, 2) AS post_30d_car_pct
 FROM car_by_event
-ORDER BY ABS(car_event_0_1d) DESC
-LIMIT 30;
+ORDER BY ABS(event_car) DESC
+LIMIT 20;
 
 
 -- Query 3: Big Pharma vs Biotech
@@ -211,8 +203,7 @@ WITH car_by_event AS (
         DrugName,
         ApplType,
         approval_date,
-        SUM(CASE WHEN days_from_approval BETWEEN 0 AND 1 THEN abnormal_return ELSE 0 END) AS car_event_0_1d,
-        SUM(CASE WHEN days_from_approval BETWEEN 2 AND 7 THEN abnormal_return ELSE 0 END) AS car_post_7d
+        SUM(CASE WHEN days_from_approval BETWEEN 0 AND 1 THEN abnormal_return ELSE 0 END) AS event_car
     FROM event_window
     GROUP BY event_id, ticker, SponsorApplicant, DrugName, ApplType, approval_date
 ),
@@ -234,10 +225,8 @@ classified_events AS (
 SELECT
     company_group,
     COUNT(*) AS events,
-    ROUND(AVG(car_event_0_1d) * 100, 2) AS avg_event_car_pct,
-    ROUND(MEDIAN(car_event_0_1d) * 100, 2) AS median_event_car_pct,
-    ROUND(AVG(car_post_7d) * 100, 2) AS avg_post_7d_car_pct,
-    ROUND(MEDIAN(car_post_7d) * 100, 2) AS median_post_7d_car_pct
+    ROUND(AVG(event_car) * 100, 2) AS mean_event_car_pct,
+    ROUND(MEDIAN(event_car) * 100, 2) AS median_event_car_pct
 FROM classified_events
 GROUP BY company_group
 ORDER BY median_event_car_pct DESC;
@@ -253,8 +242,7 @@ WITH car_by_event AS (
         DrugName,
         ApplType,
         approval_date,
-        SUM(CASE WHEN days_from_approval BETWEEN 0 AND 1 THEN abnormal_return ELSE 0 END) AS car_event_0_1d,
-        SUM(CASE WHEN days_from_approval BETWEEN 2 AND 7 THEN abnormal_return ELSE 0 END) AS car_post_7d
+        SUM(CASE WHEN days_from_approval BETWEEN 0 AND 1 THEN abnormal_return ELSE 0 END) AS event_car
     FROM event_window
     GROUP BY event_id, ticker, SponsorApplicant, DrugName, ApplType, approval_date
 )
@@ -262,17 +250,15 @@ WITH car_by_event AS (
 SELECT
     ApplType,
     COUNT(*) AS events,
-    ROUND(AVG(car_event_0_1d) * 100, 2) AS avg_event_car_pct,
-    ROUND(MEDIAN(car_event_0_1d) * 100, 2) AS median_event_car_pct,
-    ROUND(AVG(car_post_7d) * 100, 2) AS avg_post_7d_car_pct,
-    ROUND(MEDIAN(car_post_7d) * 100, 2) AS median_post_7d_car_pct
+    ROUND(AVG(event_car) * 100, 2) AS mean_event_car_pct,
+    ROUND(MEDIAN(event_car) * 100, 2) AS median_event_car_pct
 FROM car_by_event
 WHERE ApplType IN ('NDA', 'BLA')
 GROUP BY ApplType
 ORDER BY median_event_car_pct DESC;
 
 
--- Query 5: Top 20 market-moving FDA approval events
+-- Query 5: Priority vs Standard Review
 
 WITH car_by_event AS (
     SELECT
@@ -281,50 +267,39 @@ WITH car_by_event AS (
         SponsorApplicant,
         DrugName,
         ApplType,
+        COALESCE(UPPER(ReviewPriority), 'UNKNOWN') AS review_priority,
         approval_date,
-        SUM(CASE WHEN days_from_approval BETWEEN 0 AND 1 THEN abnormal_return ELSE 0 END) AS car_event_0_1d,
-        SUM(CASE WHEN days_from_approval BETWEEN 2 AND 30 THEN abnormal_return ELSE 0 END) AS car_post_30d
-    FROM event_window
-    GROUP BY event_id, ticker, SponsorApplicant, DrugName, ApplType, approval_date
-)
-
-SELECT
-    approval_date,
-    ticker,
-    SponsorApplicant,
-    DrugName,
-    ApplType,
-    ROUND(car_event_0_1d * 100, 2) AS event_car_pct,
-    ROUND(car_post_30d * 100, 2) AS post_30d_car_pct
-FROM car_by_event
-ORDER BY ABS(car_event_0_1d) DESC
-LIMIT 20;
-
-
--- Query 6: Priority vs Standard Review
-
-WITH car_by_event AS (
-    SELECT
-        event_id,
-        ticker,
-        SponsorApplicant,
-        DrugName,
-        ApplType,
-        ReviewPriority,
-        approval_date,
-        SUM(CASE WHEN days_from_approval BETWEEN 0 AND 1 THEN abnormal_return ELSE 0 END) AS car_event_0_1d,
-        SUM(CASE WHEN days_from_approval BETWEEN 2 AND 7 THEN abnormal_return ELSE 0 END) AS car_post_7d
+        SUM(CASE WHEN days_from_approval BETWEEN 0 AND 1 THEN abnormal_return ELSE 0 END) AS event_car
     FROM event_window
     GROUP BY event_id, ticker, SponsorApplicant, DrugName, ApplType, ReviewPriority, approval_date
 )
 
 SELECT
-    COALESCE(UPPER(ReviewPriority), 'UNKNOWN') AS review_priority,
+    review_priority,
     COUNT(*) AS events,
-    ROUND(AVG(car_event_0_1d) * 100, 2) AS avg_event_car_pct,
-    ROUND(MEDIAN(car_event_0_1d) * 100, 2) AS median_event_car_pct,
-    ROUND(AVG(car_post_7d) * 100, 2) AS avg_post_7d_car_pct,
-    ROUND(MEDIAN(car_post_7d) * 100, 2) AS median_post_7d_car_pct
+    ROUND(AVG(event_car) * 100, 2) AS mean_event_car_pct,
+    ROUND(MEDIAN(event_car) * 100, 2) AS median_event_car_pct
 FROM car_by_event
+WHERE review_priority IN ('PRIORITY', 'STANDARD')
 GROUP BY review_priority
 ORDER BY median_event_car_pct DESC;
+
+
+-- Query 6: Event window abnormal return summary
+
+SELECT
+    event_window,
+    COUNT(*) AS trading_days,
+    COUNT(DISTINCT event_id) AS fda_events,
+    ROUND(AVG(abnormal_return) * 100, 4) AS mean_abnormal_return_pct,
+    ROUND(MEDIAN(abnormal_return) * 100, 4) AS median_abnormal_return_pct
+FROM event_window
+WHERE event_window IS NOT NULL
+GROUP BY event_window
+ORDER BY
+    CASE event_window
+        WHEN 'pre_30_to_7' THEN 1
+        WHEN 'event_1_to_1' THEN 2
+        WHEN 'post_2_to_10' THEN 3
+        WHEN 'post_11_to_30' THEN 4
+    END;
