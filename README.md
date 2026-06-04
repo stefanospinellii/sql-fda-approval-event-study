@@ -6,7 +6,7 @@ This project investigates how public pharmaceutical companies' stock prices reac
 
 Using FDA approval data and historical stock prices, I built an event study in SQL to measure abnormal returns around approval dates and identify which types of approvals generate the strongest market reactions.
 
-The project was built entirely in SQL using DuckDB. Python was only used to download stock price data from Yahoo Finance.
+The project was built in SQL using DuckDB. Python was used to download stock price data from Yahoo Finance.
 
 ---
 
